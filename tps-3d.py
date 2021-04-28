@@ -45,8 +45,6 @@ class TPS3D:
                 self.K[i, j] = self.distance(c_points[i], c_points[j])
             self.P[i, 0] = 1
             self.P[i, 1:] = c_points[i]
-        # print("matK is: \n", self.K)
-        # print("matP is: \n", self.P)
 
         """
         L matrix aggregate information about K, P and P.T blocks
@@ -55,17 +53,14 @@ class TPS3D:
         self.L[:m, :m] = self.K
         self.L[:m, m:] = self.P
         self.L[m:, :m] = self.P.T
-        # print("matL is: \n", self.L)
 
         # Building the right hand side B = [v 0].T. 
         self.B = np.zeros((m+4, 3))
         self.B[:m, :] = t_points
-        # print("matB is: \n", self.B)
 
         # Solve for TPS parameters
         # Find vector  = [w a]^T
         self.tps_params = np.linalg.solve(self.L, self.B)
-        # print("tps_params is: \n", self.tps_params)
 
     def transform(self, p):
         """
@@ -92,11 +87,13 @@ class TPS3D:
 
     def assessModel(self):
         # check errors between target and transformed points
+        total_error = 0
         for (index, input_point) in enumerate(self.c_points):
             output_point = self.transform(input_point).squeeze()
             target_point = self.t_points[index].squeeze()
             error_vector = np.around(target_point - output_point, decimals=5)
-            print('index: {},  error vector: {}'.format(index,  error_vector ) )
+            total_error += np.linalg.norm(error_vector)
+        return total_error
 
     def save(self, filename='tps_model.pkl'):
         with open(filename, 'wb') as output_file:
@@ -109,6 +106,9 @@ class TPS3D:
             self.__dict__ = loaded_model.__dict__
 
 if __name__ == '__main__':
+    """
+    Testing the TPS model with sample points.
+    """
     # Control points
     xs = [-411.34, -276.03, -98.33, 40.22, 136.59, -104.59, -251.04, -318.4, -316.81, -212.5, -40.54, 
         67.61, 165.82, -72.47, -285.28, -368.06]
@@ -124,11 +124,14 @@ if __name__ == '__main__':
     zt = [0, 0, 0, 0, 0, 0, 0, 0, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3]
     t_points = np.vstack([xt, yt, zt]).T
 
+    # Instantiating TPS model
     tps_model = TPS3D()
     tps_model.fit(c_points, t_points)
 
     p = np.array([-411.34, -143.36, -371.41])
     print("Output for {} is {}: ".format(p, tps_model.transform(p).T.squeeze() ) )
 
-    tps_model.assessModel()
+    total_error = tps_model.assessModel()
+    print("Total absolute error for control and target points is: {}".format(total_error))
+
 #%%
